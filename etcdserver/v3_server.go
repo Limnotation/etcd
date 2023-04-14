@@ -93,6 +93,13 @@ type Authenticator interface {
 }
 
 func (s *EtcdServer) Range(ctx context.Context, r *pb.RangeRequest) (*pb.RangeResponse, error) {
+	lg := s.getLogger()
+	if lg != nil {
+		lg.Info("Range request flows to `EtcdServer.Range()`", zap.Any("request", r))
+	} else {
+		plog.Infof("Range request flows to `EtcdServer.Range()`: %v", r)
+	}
+
 	trace := traceutil.New("range",
 		s.getLogger(),
 		traceutil.Field{Key: "range_begin", Value: string(r.Key)},
@@ -114,6 +121,7 @@ func (s *EtcdServer) Range(ctx context.Context, r *pb.RangeRequest) (*pb.RangeRe
 	}(time.Now())
 
 	if !r.Serializable {
+		lg.Info("Linearizable Range is now required")
 		err = s.linearizableReadNotify(ctx)
 		trace.Step("agreement among raft nodes before linearized reading")
 		if err != nil {
@@ -643,16 +651,19 @@ func (s *EtcdServer) doSerialize(ctx context.Context, chk func(*auth.AuthInfo) e
 }
 
 func (s *EtcdServer) processInternalRaftRequestOnce(ctx context.Context, r pb.InternalRaftRequest) (*applyResult, error) {
+	// If server is overloaded, chances are users will see this error.
 	ai := s.getAppliedIndex()
 	ci := s.getCommittedIndex()
 	if ci > ai+maxGapBetweenApplyAndCommitIndex {
 		return nil, ErrTooManyRequests
 	}
 
+	// Set request ID in header.
 	r.Header = &pb.RequestHeader{
 		ID: s.reqIDGen.Next(),
 	}
 
+	// Set auth info in header.
 	authInfo, err := s.AuthInfoFromCtx(ctx)
 	if err != nil {
 		return nil, err
@@ -713,6 +724,7 @@ func (s *EtcdServer) linearizableReadLoop() {
 		case <-leaderChangedNotifier:
 			continue
 		case <-s.readwaitc:
+			s.getLogger().Info("receive signal from `readwaitc`, leave `select` block")
 		case <-s.stopping:
 			return
 		}
@@ -857,9 +869,9 @@ func uint64ToBigEndianBytes(number uint64) []byte {
 	return byteResult
 }
 
+// sendReadIndex sends a readIndex request to raft module.
 func (s *EtcdServer) sendReadIndex(requestIndex uint64) error {
 	ctxToSend := uint64ToBigEndianBytes(requestIndex)
-
 	cctx, cancel := context.WithTimeout(context.Background(), s.Cfg.ReqTimeout())
 	err := s.r.ReadIndex(cctx, ctxToSend)
 	cancel()
@@ -880,9 +892,10 @@ func (s *EtcdServer) linearizableReadNotify(ctx context.Context) error {
 	nc := s.readNotifier
 	s.readMu.RUnlock()
 
-	// signal linearizable loop for current notify if it hasn't been already
+	// Signal linearizable loop for current notify if it hasn't been already
 	select {
 	case s.readwaitc <- struct{}{}:
+		s.getLogger().Info("send signal into `readwaitc`")
 	default:
 	}
 

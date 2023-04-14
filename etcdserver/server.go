@@ -97,6 +97,7 @@ const (
 	// maxPendingRevokes is the maximum number of outstanding expired lease revocations.
 	maxPendingRevokes = 16
 
+	// recommendedMaxRequestBytes is the recommended maximum request size(10M).
 	recommendedMaxRequestBytes = 10 * 1024 * 1024
 
 	readyPercent = 0.9
@@ -306,12 +307,15 @@ func NewServer(cfg ServerConfig) (srv *EtcdServer, err error) {
 		}
 	}
 
+	// Data directory must be checked first.
 	if terr := fileutil.TouchDirAll(cfg.DataDir); terr != nil {
 		return nil, fmt.Errorf("cannot access data directory: %v", terr)
 	}
 
+	// Check if wal files exist.
 	haveWAL := wal.Exist(cfg.WALDir())
 
+	//
 	if err = fileutil.TouchDirAll(cfg.SnapDir()); err != nil {
 		if cfg.Logger != nil {
 			cfg.Logger.Fatal(

@@ -678,6 +678,7 @@ func configureClientListeners(cfg *Config) (sctxs map[string]*serveCtx, err erro
 		sctx.httpOnly = true
 	}
 
+	// Listen on all specified client URLs for client connections.
 	for _, sctx := range sctxs {
 		if sctx.l, err = net.Listen(sctx.network, sctx.addr); err != nil {
 			return nil, err

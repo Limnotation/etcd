@@ -21,8 +21,15 @@
 // etcd binary, work in the `go.etcd.io/etcd/etcdmain` package.
 package main
 
-import "go.etcd.io/etcd/etcdmain"
+import (
+	"os"
+
+	"go.etcd.io/etcd/etcdmain"
+	"go.uber.org/zap"
+)
 
 func main() {
+	logger, _ := zap.NewProduction()
+	logger.Info("Starting etcd", zap.Any("arguments", os.Args))
 	etcdmain.Main()
 }

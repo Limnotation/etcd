@@ -244,7 +244,9 @@ func RestartNode(c *Config) Node {
 }
 
 type msgWithResult struct {
-	m      pb.Message
+	m pb.Message
+
+	// result is used to fail fast when encountering errors.
 	result chan error
 }
 
@@ -350,6 +352,7 @@ func (n *node) run() {
 			}
 		case m := <-n.recvc:
 			// filter out response message from unknown From.
+			// Q: Why filter out response message?
 			if pr := r.prs.Progress[m.From]; pr != nil || !IsResponseMsg(m.Type) {
 				r.Step(m)
 			}
@@ -453,6 +456,7 @@ func (n *node) stepWait(ctx context.Context, m pb.Message) error {
 // Step advances the state machine using msgs. The ctx.Err() will be returned,
 // if any.
 func (n *node) stepWithWaitOption(ctx context.Context, m pb.Message, wait bool) error {
+	// Messages except MsgProp are sent to `recvc` and processed by raft.
 	if m.Type != pb.MsgProp {
 		select {
 		case n.recvc <- m:
@@ -463,6 +467,8 @@ func (n *node) stepWithWaitOption(ctx context.Context, m pb.Message, wait bool) 
 			return ErrStopped
 		}
 	}
+
+	// MsgProp is sent to `propc` and processed by raft.
 	ch := n.propc
 	pm := msgWithResult{m: m}
 	if wait {
@@ -478,6 +484,7 @@ func (n *node) stepWithWaitOption(ctx context.Context, m pb.Message, wait bool) 
 	case <-n.done:
 		return ErrStopped
 	}
+
 	select {
 	case err := <-pm.result:
 		if err != nil {

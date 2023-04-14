@@ -22,6 +22,7 @@ import (
 	"go.etcd.io/etcd/etcdserver/api/v3rpc/rpctypes"
 	pb "go.etcd.io/etcd/etcdserver/etcdserverpb"
 	"go.etcd.io/etcd/pkg/adt"
+	"go.uber.org/zap"
 
 	"github.com/coreos/pkg/capnslog"
 )
@@ -30,6 +31,8 @@ var (
 	plog = capnslog.NewPackageLogger("go.etcd.io/etcd", "etcdserver/api/v3rpc")
 )
 
+// kvServer is the second level implementation of `KVServer` interface.
+// kvServer is referenced by `quotaKVServer` and `leaseKVServer`.
 type kvServer struct {
 	hdr header
 	kv  etcdserver.RaftKV
@@ -48,6 +51,9 @@ func (s *kvServer) Range(ctx context.Context, r *pb.RangeRequest) (*pb.RangeResp
 	if err := checkRangeRequest(r); err != nil {
 		return nil, err
 	}
+
+	lg, _ := zap.NewProduction()
+	lg.Info("Range request flows to `kvServer.Range()", zap.Any("request detail", r))
 
 	resp, err := s.kv.Range(ctx, r)
 	if err != nil {
@@ -117,6 +123,8 @@ func (s *kvServer) Compact(ctx context.Context, r *pb.CompactionRequest) (*pb.Co
 	return resp, nil
 }
 
+// checkRangeRequest ensures that range request must contain
+// at least one key.
 func checkRangeRequest(r *pb.RangeRequest) error {
 	if len(r.Key) == 0 {
 		return rpctypes.ErrGRPCEmptyKey

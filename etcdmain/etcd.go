@@ -56,10 +56,13 @@ var (
 func startEtcdOrProxyV2() {
 	grpc.EnableTracing = false
 
+	// Parse configuration from command line flags.
 	cfg := newConfig()
 	defaultInitialCluster := cfg.ec.InitialCluster
-
 	err := cfg.parse(os.Args[1:])
+
+	// On encountering errors when parsing flags, print necessary error
+	// information and then exit.
 	lg := cfg.ec.GetLogger()
 	if err != nil {
 		if lg != nil {
@@ -94,6 +97,7 @@ func startEtcdOrProxyV2() {
 		}
 	}()
 
+	// Default host.
 	defaultHost, dhErr := (&cfg.ec).UpdateDefaultClusterFromName(defaultInitialCluster)
 	if defaultHost != "" {
 		if lg != nil {
@@ -113,6 +117,8 @@ func startEtcdOrProxyV2() {
 		}
 	}
 
+	// Set up default data directory if no `--data-dir` is provided.
+	// One should always set `--data-dir` explicitly.
 	if cfg.ec.Dir == "" {
 		cfg.ec.Dir = fmt.Sprintf("%v.etcd", cfg.ec.Name)
 		if lg != nil {
@@ -128,6 +134,9 @@ func startEtcdOrProxyV2() {
 	var stopped <-chan struct{}
 	var errc <-chan error
 
+	// Detects sub-directory type (member or proxy) and starts the appropriate service.
+	// 	1. If sub-directories are present, starts services based on the sub-directory type.
+	// 	2. If no sub-directories are present, starts services based on the provided flags.
 	which := identifyDataDirOrDie(cfg.ec.GetLogger(), cfg.ec.Dir)
 	if which != dirEmpty {
 		if lg != nil {
@@ -565,6 +574,7 @@ func identifyDataDirOrDie(lg *zap.Logger, dir string) dirType {
 		}
 	}
 
+	// Check subdirectories's type under `data-dir`.
 	var m, p bool
 	for _, name := range names {
 		switch dirType(name) {
@@ -585,6 +595,8 @@ func identifyDataDirOrDie(lg *zap.Logger, dir string) dirType {
 		}
 	}
 
+	// One cannot have both member and proxy directories under the
+	// same data directory.
 	if m && p {
 		if lg != nil {
 			lg.Fatal("invalid datadir; both member and proxy directories exist")
@@ -592,6 +604,7 @@ func identifyDataDirOrDie(lg *zap.Logger, dir string) dirType {
 			plog.Fatal("invalid datadir. Both member and proxy directories exist.")
 		}
 	}
+
 	if m {
 		return dirMember
 	}

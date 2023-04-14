@@ -1,0 +1,10 @@
+name: etcd-node3
+data-dir: /Users/jingyao.deng/Desktop/everythin9/etcd/data/node3
+initial-cluster-state: new
+initial-cluster-token: etcd-cluster-token
+initial-cluster: etcd-node1=http://127.0.0.1:2380,etcd-node2=http://127.0.0.1:2381,etcd-node3=http://127.0.0.1:2382
+initial-advertise-peer-urls: http://127.0.0.1:2382
+listen-peer-urls: http://127.0.0.1:2382
+listen-client-urls: http://127.0.0.1:2377
+advertise-client-urls: http://127.0.0.1:2377
+logger: zap

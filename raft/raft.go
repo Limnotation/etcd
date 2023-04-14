@@ -58,6 +58,17 @@ const (
 	ReadOnlyLeaseBased
 )
 
+func (ro *ReadOnlyOption) String() string {
+	switch *ro {
+	case ReadOnlySafe:
+		return "ReadOnlySafe"
+	case ReadOnlyLeaseBased:
+		return "ReadOnlyLeaseBased"
+	default:
+		return "Unknown ReadOnlyOption"
+	}
+}
+
 // Possible values for CampaignType
 const (
 	// campaignPreElection represents the first phase of a normal election when
@@ -836,7 +847,7 @@ func (r *raft) poll(id uint64, t pb.MessageType, v bool) (granted int, rejected 
 }
 
 func (r *raft) Step(m pb.Message) error {
-	// Handle the message term, which may result in our stepping down to a follower.
+	// Handle the message term, which may result in leader stepping down to a follower.
 	switch {
 	case m.Term == 0:
 		// local message
@@ -910,6 +921,8 @@ func (r *raft) Step(m pb.Message) error {
 		return nil
 	}
 
+	// Handle the message type, since some types might result in
+	// current raft node changing its role.
 	switch m.Type {
 	case pb.MsgHup:
 		if r.state != StateLeader {
@@ -1085,8 +1098,11 @@ func stepLeader(r *raft, m pb.Message) error {
 		r.bcastAppend()
 		return nil
 	case pb.MsgReadIndex:
-		// only one voting member (the leader) in the cluster
+		r.logger.Infof("%x [term %d] received MsgReadIndex with index %d", r.id, r.Term, m.Index)
+
+		// only one voting member (the leader) in the cluster.
 		if r.prs.IsSingleton() {
+			r.logger.Infof("There is only one voting member in the cluster.")
 			if resp := r.responseToReadIndexReq(m, r.raftLog.committed); resp.To != None {
 				r.send(resp)
 			}
@@ -1100,6 +1116,7 @@ func stepLeader(r *raft, m pb.Message) error {
 			return nil
 		}
 
+		// Attempt to send MsgReadIndexResp.
 		sendMsgReadIndexResponse(r, m)
 
 		return nil
@@ -1188,10 +1205,12 @@ func stepLeader(r *raft, m pb.Message) error {
 			return nil
 		}
 
+		// Return immediately if not yet received enough MsgHeartbeatResp(>= quorum)
 		if r.prs.Voters.VoteResult(r.readOnly.recvAck(m.From, m.Context)) != quorum.VoteWon {
 			return nil
 		}
 
+		// On receiving enough MsgHeartbeatResp(>= quorum), respond to MsgReadIndex requests.
 		rss := r.readOnly.advance(m)
 		for _, rs := range rss {
 			req := rs.req
@@ -1686,6 +1705,9 @@ func releasePendingReadIndexMessages(r *raft) {
 }
 
 func sendMsgReadIndexResponse(r *raft, m pb.Message) {
+	r.logger.Infof("Into sendMsgReadIndexResponse, m: %+v", m)
+	r.logger.Infof("raft readOnly Option: %s", r.readOnly.option.String())
+
 	// thinking: use an internally defined context instead of the user given context.
 	// We can express this in terms of the term and index instead of a user-supplied value.
 	// This would allow multiple reads to piggyback on the same message.

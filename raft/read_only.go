@@ -14,7 +14,10 @@
 
 package raft
 
-import pb "go.etcd.io/etcd/raft/raftpb"
+import (
+	pb "go.etcd.io/etcd/raft/raftpb"
+	"go.uber.org/zap"
+)
 
 // ReadState provides state for read only query.
 // It's caller's responsibility to call ReadIndex first before getting
@@ -27,8 +30,13 @@ type ReadState struct {
 }
 
 type readIndexStatus struct {
-	req   pb.Message
+	// The original request
+	req pb.Message
+
+	// The commit index of the raft state machine when it received
+	// the read only request.
 	index uint64
+
 	// NB: this never records 'false', but it's more convenient to use this
 	// instead of a map[uint64]struct{} due to the API of quorum.VoteResult. If
 	// this becomes performance sensitive enough (doubtful), quorum.VoteResult
@@ -37,7 +45,10 @@ type readIndexStatus struct {
 }
 
 type readOnly struct {
-	option           ReadOnlyOption
+	option ReadOnlyOption
+
+	// pendingReadIndex stores all pending readIndex requests. The key is the
+	// unique id create from client's request.
 	pendingReadIndex map[string]*readIndexStatus
 	readIndexQueue   []string
 }
@@ -54,7 +65,10 @@ func newReadOnly(option ReadOnlyOption) *readOnly {
 // the read only request.
 // `m` is the original read only request message from the local or remote node.
 func (ro *readOnly) addRequest(index uint64, m pb.Message) {
+	lg, _ := zap.NewProduction()
+
 	s := string(m.Entries[0].Data)
+	lg.Info("Each readIndex request has unique request id", zap.Any("id", s))
 	if _, ok := ro.pendingReadIndex[s]; ok {
 		return
 	}

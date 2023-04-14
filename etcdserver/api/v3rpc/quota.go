@@ -23,6 +23,7 @@ import (
 	"go.etcd.io/etcd/pkg/types"
 )
 
+// quotaKVServer is the top level implementation of `KVServer` interface.
 type quotaKVServer struct {
 	pb.KVServer
 	qa quotaAlarmer
@@ -34,7 +35,7 @@ type quotaAlarmer struct {
 	id types.ID
 }
 
-// check whether request satisfies the quota. If there is not enough space,
+// check whether request satisfies the quota. If there is no enough space,
 // ignore request and raise the free space alarm.
 func (qa *quotaAlarmer) check(ctx context.Context, r interface{}) error {
 	if qa.q.Available(r) {
