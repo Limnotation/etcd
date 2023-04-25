@@ -82,6 +82,7 @@ type applierV3 interface {
 
 type checkReqFunc func(mvcc.ReadView, *pb.RequestOp) error
 
+// applierV3backend is the third level implemention of `applierV3` interface.
 type applierV3backend struct {
 	s *EtcdServer
 
@@ -255,11 +256,19 @@ func (a *applierV3backend) DeleteRange(txn mvcc.TxnWrite, dr *pb.DeleteRangeRequ
 }
 
 func (a *applierV3backend) Range(ctx context.Context, txn mvcc.TxnRead, r *pb.RangeRequest) (*pb.RangeResponse, error) {
+	lg := a.s.getLogger()
+	if lg == nil {
+		plog.Infof("Range request flows to `applierV3backend.Range`", zap.Any("request", r))
+	} else {
+		lg.Info("Range request flows to `applierV3backend.Range`", zap.Any("request", r))
+	}
+
 	trace := traceutil.Get(ctx)
 
 	resp := &pb.RangeResponse{}
 	resp.Header = &pb.ResponseHeader{}
 
+	// Range operation should be conducted in a read-only transaction.
 	if txn == nil {
 		txn = a.s.kv.Read(trace)
 		defer txn.End()
@@ -282,7 +291,6 @@ func (a *applierV3backend) Range(ctx context.Context, txn mvcc.TxnRead, r *pb.Ra
 		Rev:   r.Revision,
 		Count: r.CountOnly,
 	}
-
 	rr, err := txn.Range(r.Key, mkGteRange(r.RangeEnd), ro)
 	if err != nil {
 		return nil, err
@@ -832,6 +840,8 @@ func (a *applierV3backend) RoleList(r *pb.AuthRoleListRequest) (*pb.AuthRoleList
 	return resp, err
 }
 
+// quotaApplierV3 is the second level implementation of `applierV3` interface.
+// It checks the quota before applying the request.
 type quotaApplierV3 struct {
 	applierV3
 	q Quota

@@ -115,6 +115,7 @@ func StartEtcd(inCfg *Config) (e *Etcd, err error) {
 		e = nil
 	}()
 
+	// Set up peer listeners for peer-to-peer communication.
 	if e.cfg.logger != nil {
 		e.cfg.logger.Info(
 			"configuring peer listeners",
@@ -125,6 +126,7 @@ func StartEtcd(inCfg *Config) (e *Etcd, err error) {
 		return e, err
 	}
 
+	// Set up client listeners for client-server communication.
 	if e.cfg.logger != nil {
 		e.cfg.logger.Info(
 			"configuring client listeners",
@@ -152,6 +154,13 @@ func StartEtcd(inCfg *Config) (e *Etcd, err error) {
 		}
 	}
 
+	if e.cfg.logger != nil {
+		e.cfg.logger.Info(
+			"Acquired URLs map for member's peers",
+			zap.Any("urlsmap", urlsmap.URLs()),
+		)
+	}
+
 	// AutoCompactionRetention defaults to "0" if not set.
 	if len(cfg.AutoCompactionRetention) == 0 {
 		cfg.AutoCompactionRetention = "0"
@@ -161,8 +170,10 @@ func StartEtcd(inCfg *Config) (e *Etcd, err error) {
 		return e, err
 	}
 
+	// Set up Freelist type for the backend bbolt database.
 	backendFreelistType := parseBackendFreelistType(cfg.ExperimentalBackendFreelistType)
 
+	// Set up etcd server.
 	srvcfg := etcdserver.ServerConfig{
 		Name:                        cfg.Name,
 		ClientURLs:                  cfg.AdvertiseClientUrls,
@@ -462,7 +473,10 @@ func stopServers(ctx context.Context, ss *servers) {
 
 func (e *Etcd) Err() <-chan error { return e.errc }
 
+// configurePeerListeners sets up listeners on every ports provided in
+// `listen-peer-urls`.
 func configurePeerListeners(cfg *Config) (peers []*peerListener, err error) {
+	// TLS related.
 	if err = updateCipherSuites(&cfg.PeerTLSInfo, cfg.CipherSuites); err != nil {
 		return nil, err
 	}
@@ -541,7 +555,7 @@ func configurePeerListeners(cfg *Config) (peers []*peerListener, err error) {
 	return peers, nil
 }
 
-// configure peer handlers after rafthttp.Transport started
+// Configure peer handlers after rafthttp.Transport started
 func (e *Etcd) servePeers() (err error) {
 	ph := etcdhttp.NewPeerHandler(e.GetLogger(), e.Server)
 	var peerTLScfg *tls.Config
@@ -602,7 +616,10 @@ func (e *Etcd) servePeers() (err error) {
 	return nil
 }
 
+// configureClientListeners sets up listeners on every ports provided in
+// `listen-client-urls`.
 func configureClientListeners(cfg *Config) (sctxs map[string]*serveCtx, err error) {
+	// TLS related.
 	if err = updateCipherSuites(&cfg.ClientTLSInfo, cfg.CipherSuites); err != nil {
 		return nil, err
 	}
@@ -736,6 +753,8 @@ func configureClientListeners(cfg *Config) (sctxs map[string]*serveCtx, err erro
 	return sctxs, nil
 }
 
+// Resolve the provided URL to get the network address, security flag
+// and the using tranport layer protocol.
 func resolveUrl(u url.URL) (addr string, secure bool, network string) {
 	addr = u.Host
 	network = "tcp"

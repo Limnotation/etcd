@@ -53,12 +53,14 @@ type Transporter interface {
 	// The handler MUST be used to handle RaftPrefix(/raft)
 	// endpoint.
 	Handler() http.Handler
+
 	// Send sends out the given messages to the remote peers.
 	// Each message has a To field, which is an id that maps
 	// to an existing peer in the transport.
 	// If the id cannot be found in the transport, the message
 	// will be ignored.
 	Send(m []raftpb.Message)
+
 	// SendSnapshot sends out the given snapshot message to a remote peer.
 	// The behavior of SendSnapshot is similar to Send.
 	SendSnapshot(m snap.Message)

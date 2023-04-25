@@ -287,6 +287,7 @@ type raft struct {
 
 	// the leader id
 	lead uint64
+
 	// leadTransferee is id of the leader transfer target when its value is not zero.
 	// Follow the procedure defined in raft thesis 3.10.
 	leadTransferee uint64
@@ -297,6 +298,7 @@ type raft struct {
 	// be proposed if the leader's applied index is greater than this
 	// value.
 	pendingConfIndex uint64
+
 	// an estimate of the size of the uncommitted tail of the Raft log. Used to
 	// prevent unbounded log growth. Only maintained by the leader. Reset on
 	// term changes.
@@ -435,12 +437,14 @@ func (r *raft) send(m pb.Message) {
 		}
 	} else {
 		if m.Term != 0 {
+			// All not-campaign messages can not have the term set when created.
 			panic(fmt.Sprintf("term should not be set when sending %s (was %d)", m.Type, m.Term))
 		}
-		// do not attach term to MsgProp, MsgReadIndex
-		// proposals are a way to forward to the leader and
-		// should be treated as local message.
-		// MsgReadIndex is also forwarded to leader.
+
+		// Do not attach term to MsgProp, MsgReadIndex:
+		// - Proposals are a way to forward to the leader and
+		//	 should be treated as local message.
+		// - MsgReadIndex is also forwarded to leader.
 		if m.Type != pb.MsgProp && m.Type != pb.MsgReadIndex {
 			m.Term = r.Term
 		}
@@ -460,20 +464,26 @@ func (r *raft) sendAppend(to uint64) {
 // ("empty" messages are useful to convey updated Commit indexes, but
 // are undesirable when we're sending multiple messages in a batch).
 func (r *raft) maybeSendAppend(to uint64, sendIfEmpty bool) bool {
+	// Peer's Progress.
 	pr := r.prs.Progress[to]
 	if pr.IsPaused() {
 		return false
 	}
+
 	m := pb.Message{}
 	m.To = to
 
+	// Try to get the term of the first entry of entries to be sent to peer.
 	term, errt := r.raftLog.term(pr.Next - 1)
+
+	// Try to get entries to be sent to peer.
 	ents, erre := r.raftLog.entries(pr.Next, r.maxMsgSize)
 	if len(ents) == 0 && !sendIfEmpty {
 		return false
 	}
 
-	if errt != nil || erre != nil { // send snapshot if we failed to get term or entries
+	// Send snapshot if we failed to get term or entries.
+	if errt != nil || erre != nil {
 		if !pr.RecentActive {
 			r.logger.Debugf("ignore sending snapshot to %x since it is not recently active", to)
 			return false
@@ -1100,7 +1110,7 @@ func stepLeader(r *raft, m pb.Message) error {
 	case pb.MsgReadIndex:
 		r.logger.Infof("%x [term %d] received MsgReadIndex with index %d", r.id, r.Term, m.Index)
 
-		// only one voting member (the leader) in the cluster.
+		// Only one voting member (the leader) in the cluster.
 		if r.prs.IsSingleton() {
 			r.logger.Infof("There is only one voting member in the cluster.")
 			if resp := r.responseToReadIndexReq(m, r.raftLog.committed); resp.To != None {

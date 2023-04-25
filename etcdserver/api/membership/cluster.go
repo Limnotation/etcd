@@ -70,10 +70,16 @@ type ConfigChangeContext struct {
 	IsPromote bool `json:"isPromote"`
 }
 
-// NewClusterFromURLsMap creates a new raft cluster using provided urls map. Currently, it does not support creating
-// cluster with raft learner member.
+// NewClusterFromURLsMap creates a new raft cluster using provided urls map.
+// Currently, it does not support creating cluster with raft learner member.
 func NewClusterFromURLsMap(lg *zap.Logger, token string, urlsmap types.URLsMap) (*RaftCluster, error) {
+	if lg == nil {
+		lg, _ = zap.NewProduction()
+	}
+
 	c := NewCluster(lg, token)
+	lg.Sugar().Infof("Cluster with %s as token created", token)
+
 	for name, urls := range urlsmap {
 		m := NewMember(name, urls, token, nil)
 		if _, ok := c.members[m.ID]; ok {
@@ -83,6 +89,7 @@ func NewClusterFromURLsMap(lg *zap.Logger, token string, urlsmap types.URLsMap) 
 			return nil, fmt.Errorf("cannot use %x as member id", raft.None)
 		}
 		c.members[m.ID] = m
+		lg.Sugar().Infof("Member %s[%v] with ID %s added to cluster", name, urls.StringSlice(), m.ID)
 	}
 	c.genID()
 	return c, nil

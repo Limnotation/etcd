@@ -171,6 +171,7 @@ func (r *raftNode) start(rh *raftReadyHandler) {
 			case <-r.ticker.C:
 				r.tick()
 			case rd := <-r.Ready():
+				// Read possible leaderhip change if Ready.SoftState is not empty.
 				if rd.SoftState != nil {
 					newLeader := rd.SoftState.Lead != raft.None && rh.getLead() != rd.SoftState.Lead
 					if newLeader {
@@ -194,6 +195,7 @@ func (r *raftNode) start(rh *raftReadyHandler) {
 					r.td.Reset()
 				}
 
+				// Deal with readStates if Ready.ReadStates is not empty.
 				if len(rd.ReadStates) != 0 {
 					select {
 					case r.readStateC <- rd.ReadStates[len(rd.ReadStates)-1]:
@@ -500,7 +502,9 @@ func (r *raftNode) advanceTicks(ticks int) {
 	}
 }
 
+// startNode starts a raft node.
 func startNode(cfg ServerConfig, cl *membership.RaftCluster, ids []types.ID) (id types.ID, n raft.Node, s *raft.MemoryStorage, w *wal.WAL) {
+	// Set up wal.
 	var err error
 	member := cl.MemberByName(cfg.Name)
 	metadata := pbutil.MustMarshal(
@@ -519,6 +523,7 @@ func startNode(cfg ServerConfig, cl *membership.RaftCluster, ids []types.ID) (id
 	if cfg.UnsafeNoFsync {
 		w.SetUnsafeNoFsync()
 	}
+
 	peers := make([]raft.Peer, len(ids))
 	for i, id := range ids {
 		var ctx []byte

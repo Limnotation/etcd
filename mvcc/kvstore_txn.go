@@ -48,6 +48,13 @@ func (tr *storeTxnRead) FirstRev() int64 { return tr.firstRev }
 func (tr *storeTxnRead) Rev() int64      { return tr.rev }
 
 func (tr *storeTxnRead) Range(key, end []byte, ro RangeOptions) (r *RangeResult, err error) {
+	lg := tr.s.lg
+	if lg == nil {
+		plog.Infof("Range request flows to `storeTxnRead.Range`: key: %s, end: %s, RangeOptions: %v", string(key), string(end), ro)
+	} else {
+		lg.Info("Range request flows to `storeTxnRead.Range`", zap.String("key", string(key)), zap.String("end", string(end)), zap.Any("RangeOptions", ro))
+	}
+
 	return tr.rangeKeys(key, end, tr.Rev(), ro)
 }
 

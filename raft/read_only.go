@@ -50,7 +50,8 @@ type readOnly struct {
 	// pendingReadIndex stores all pending readIndex requests. The key is the
 	// unique id create from client's request.
 	pendingReadIndex map[string]*readIndexStatus
-	readIndexQueue   []string
+
+	readIndexQueue []string
 }
 
 func newReadOnly(option ReadOnlyOption) *readOnly {

@@ -127,11 +127,14 @@ type Node interface {
 	// Tick increments the internal logical clock for the Node by a single tick. Election
 	// timeouts and heartbeat timeouts are in units of ticks.
 	Tick()
+
 	// Campaign causes the Node to transition to candidate state and start campaigning to become leader.
 	Campaign(ctx context.Context) error
+
 	// Propose proposes that data be appended to the log. Note that proposals can be lost without
 	// notice, therefore it is user's job to ensure proposal retries.
 	Propose(ctx context.Context, data []byte) error
+
 	// ProposeConfChange proposes a configuration change. Like any proposal, the
 	// configuration change may be dropped with or without an error being
 	// returned. In particular, configuration changes are dropped unless the
@@ -166,6 +169,7 @@ type Node interface {
 	// a long time to apply the snapshot data. To continue receiving Ready without blocking raft
 	// progress, it can call Advance before finishing applying the last ready.
 	Advance()
+
 	// ApplyConfChange applies a config change (previously passed to
 	// ProposeConfChange) to the node. This must be called whenever a config
 	// change is observed in Ready.CommittedEntries.
@@ -187,8 +191,10 @@ type Node interface {
 
 	// Status returns the current status of the raft state machine.
 	Status() Status
+
 	// ReportUnreachable reports the given node is not reachable for the last send.
 	ReportUnreachable(id uint64)
+
 	// ReportSnapshot reports the status of the sent snapshot. The id is the raft ID of the follower
 	// who is meant to receive the snapshot, and the status is SnapshotFinish or SnapshotFailure.
 	// Calling ReportSnapshot with SnapshotFinish is a no-op. But, any failure in applying a
@@ -200,6 +206,7 @@ type Node interface {
 	// failure in snapshot sending is caught and reported back to the leader; so it can resume raft
 	// log probing in the follower.
 	ReportSnapshot(id uint64, status SnapshotStatus)
+
 	// Stop performs any necessary termination of the Node.
 	Stop()
 }
@@ -217,6 +224,7 @@ func StartNode(c *Config, peers []Peer) Node {
 	if len(peers) == 0 {
 		panic("no peers given; use RestartNode instead")
 	}
+
 	rn, err := NewRawNode(c)
 	if err != nil {
 		panic(err)

@@ -21,11 +21,14 @@ import pb "go.etcd.io/etcd/raft/raftpb"
 // position in storage; this means that the next write to storage
 // might need to truncate the log before persisting unstable.entries.
 type unstable struct {
-	// the incoming unstable snapshot, if any.
+	// The incoming unstable snapshot, if any.
 	snapshot *pb.Snapshot
-	// all entries that have not yet been written to storage.
+
+	// All entries that have not yet been written to storage.
 	entries []pb.Entry
-	offset  uint64
+
+	// The index of the first possible entry in unstable in the raftLog.
+	offset uint64
 
 	logger Logger
 }

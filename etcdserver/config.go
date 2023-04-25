@@ -319,4 +319,6 @@ func (c *ServerConfig) bootstrapTimeout() time.Duration {
 	return time.Second
 }
 
+// backendPath returns the path to the backend database. The backend database
+// is actually a file with `db` extension under the snap directory.
 func (c *ServerConfig) backendPath() string { return filepath.Join(c.SnapDir(), "db") }

@@ -95,9 +95,9 @@ type Authenticator interface {
 func (s *EtcdServer) Range(ctx context.Context, r *pb.RangeRequest) (*pb.RangeResponse, error) {
 	lg := s.getLogger()
 	if lg != nil {
-		lg.Info("Range request flows to `EtcdServer.Range()`", zap.Any("request", r))
+		lg.Info("Range request flows to `EtcdServer.Range`", zap.Any("request", r))
 	} else {
-		plog.Infof("Range request flows to `EtcdServer.Range()`: %v", r)
+		plog.Infof("Range request flows to `EtcdServer.Range`: %v", r)
 	}
 
 	trace := traceutil.New("range",
@@ -107,6 +107,8 @@ func (s *EtcdServer) Range(ctx context.Context, r *pb.RangeRequest) (*pb.RangeRe
 	)
 	ctx = context.WithValue(ctx, traceutil.TraceKey, trace)
 
+	// Log slow requests info if it takes longer than WarningApplyDuration
+	// to complete these requests.
 	var resp *pb.RangeResponse
 	var err error
 	defer func(start time.Time) {
@@ -120,6 +122,7 @@ func (s *EtcdServer) Range(ctx context.Context, r *pb.RangeRequest) (*pb.RangeRe
 		trace.LogIfLong(traceThreshold)
 	}(time.Now())
 
+	// Default range mode in etcd is linearizable.
 	if !r.Serializable {
 		lg.Info("Linearizable Range is now required")
 		err = s.linearizableReadNotify(ctx)
@@ -128,11 +131,13 @@ func (s *EtcdServer) Range(ctx context.Context, r *pb.RangeRequest) (*pb.RangeRe
 			return nil, err
 		}
 	}
+
+	// Check auth.
 	chk := func(ai *auth.AuthInfo) error {
 		return s.authStore.IsRangePermitted(ai, r.Key, r.RangeEnd)
 	}
-
 	get := func() { resp, err = s.applyV3Base.Range(ctx, nil, r) }
+
 	if serr := s.doSerialize(ctx, chk, get); serr != nil {
 		err = serr
 		return nil, err
@@ -625,7 +630,8 @@ func (s *EtcdServer) raftRequest(ctx context.Context, r pb.InternalRaftRequest) 
 	return s.raftRequestOnce(ctx, r)
 }
 
-// doSerialize handles the auth logic, with permissions checked by "chk", for a serialized request "get". Returns a non-nil error on authentication failure.
+// doSerialize handles the auth logic, with permissions checked by "chk", for a serialized request "get".
+// Returns a non-nil error on authentication failure.
 func (s *EtcdServer) doSerialize(ctx context.Context, chk func(*auth.AuthInfo) error, get func()) error {
 	trace := traceutil.Get(ctx)
 	ai, err := s.AuthInfoFromCtx(ctx)
@@ -651,7 +657,7 @@ func (s *EtcdServer) doSerialize(ctx context.Context, chk func(*auth.AuthInfo) e
 }
 
 func (s *EtcdServer) processInternalRaftRequestOnce(ctx context.Context, r pb.InternalRaftRequest) (*applyResult, error) {
-	// If server is overloaded, chances are users will see this error.
+	// If server is overloaded, chances are users will see error `ErrTooManyRequests`.
 	ai := s.getAppliedIndex()
 	ci := s.getCommittedIndex()
 	if ci > ai+maxGapBetweenApplyAndCommitIndex {
@@ -899,7 +905,7 @@ func (s *EtcdServer) linearizableReadNotify(ctx context.Context) error {
 	default:
 	}
 
-	// wait for read state notification
+	// Wait for read state notification
 	select {
 	case <-nc.c:
 		return nc.err

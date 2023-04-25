@@ -53,7 +53,7 @@ func (s *kvServer) Range(ctx context.Context, r *pb.RangeRequest) (*pb.RangeResp
 	}
 
 	lg, _ := zap.NewProduction()
-	lg.Info("Range request flows to `kvServer.Range()", zap.Any("request detail", r))
+	lg.Info("Range request flows to `kvServer.Range", zap.Any("request detail", r))
 
 	resp, err := s.kv.Range(ctx, r)
 	if err != nil {

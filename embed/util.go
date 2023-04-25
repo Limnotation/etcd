@@ -20,6 +20,8 @@ import (
 	"go.etcd.io/etcd/wal"
 )
 
+// If wal files exist in the wal directory, current member
+// is considered initialized.
 func isMemberInitialized(cfg *Config) bool {
 	waldir := cfg.WalDir
 	if waldir == "" {

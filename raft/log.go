@@ -32,6 +32,7 @@ type raftLog struct {
 	// committed is the highest log position that is known to be in
 	// stable storage on a quorum of nodes.
 	committed uint64
+
 	// applied is the highest log position that the application has
 	// been instructed to apply to its state machine.
 	// Invariant: applied <= committed
@@ -57,6 +58,7 @@ func newLogWithSize(storage Storage, logger Logger, maxNextEntsSize uint64) *raf
 	if storage == nil {
 		log.Panic("storage must not be nil")
 	}
+
 	log := &raftLog{
 		storage:         storage,
 		logger:          logger,
@@ -174,6 +176,7 @@ func (l *raftLog) snapshot() (pb.Snapshot, error) {
 	return l.storage.Snapshot()
 }
 
+// firstIndex returns the index of first available entry in the raft log.
 func (l *raftLog) firstIndex() uint64 {
 	if i, ok := l.unstable.maybeFirstIndex(); ok {
 		return i
@@ -229,7 +232,7 @@ func (l *raftLog) lastTerm() uint64 {
 }
 
 func (l *raftLog) term(i uint64) (uint64, error) {
-	// the valid term range is [index of dummy entry, last index]
+	// The valid term range is [index of dummy entry, last index]
 	dummyIndex := l.firstIndex() - 1
 	if i < dummyIndex || i > l.lastIndex() {
 		// TODO: return an error instead?

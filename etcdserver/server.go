@@ -238,9 +238,11 @@ type EtcdServer struct {
 
 	// applyV3 is the applier with auth and quotas
 	applyV3 applierV3
+
 	// applyV3Base is the core applier without auth or quotas
 	applyV3Base applierV3
-	applyWait   wait.WaitTime
+
+	applyWait wait.WaitTime
 
 	kv         mvcc.ConsistentWatchableKV
 	lessor     lease.Lessor
@@ -312,10 +314,10 @@ func NewServer(cfg ServerConfig) (srv *EtcdServer, err error) {
 		return nil, fmt.Errorf("cannot access data directory: %v", terr)
 	}
 
-	// Check if wal files exist.
+	// Check if wal files already exist.
 	haveWAL := wal.Exist(cfg.WALDir())
 
-	//
+	// Check snapshot directory.
 	if err = fileutil.TouchDirAll(cfg.SnapDir()); err != nil {
 		if cfg.Logger != nil {
 			cfg.Logger.Fatal(
@@ -328,6 +330,7 @@ func NewServer(cfg ServerConfig) (srv *EtcdServer, err error) {
 		}
 	}
 
+	// Remove temp files.
 	if err = fileutil.RemoveMatchFile(cfg.Logger, cfg.SnapDir(), func(fileName string) bool {
 		return strings.HasPrefix(fileName, "tmp")
 	}); err != nil {
@@ -338,22 +341,27 @@ func NewServer(cfg ServerConfig) (srv *EtcdServer, err error) {
 		)
 	}
 
+	// Create snapshotter.
 	ss := snap.New(cfg.Logger, cfg.SnapDir())
 
+	// Check db file path.
 	bepath := cfg.backendPath()
 	beExist := fileutil.Exist(bepath)
-	be := openBackend(cfg)
 
+	// Open backend based on the applied configuration.
+	be := openBackend(cfg)
 	defer func() {
 		if err != nil {
 			be.Close()
 		}
 	}()
 
+	// RoundTripper for peer communication.
 	prt, err := rafthttp.NewRoundTripper(cfg.PeerTLSInfo, cfg.peerDialTimeout())
 	if err != nil {
 		return nil, err
 	}
+
 	var (
 		remotes  []*membership.Member
 		snapshot *raftpb.Snapshot
@@ -361,17 +369,29 @@ func NewServer(cfg ServerConfig) (srv *EtcdServer, err error) {
 
 	switch {
 	case !haveWAL && !cfg.NewCluster:
+		// This is the case where a node does not have WAL and is not asked to
+		// start as a member of a new cluster. In this case, current node is
+		// joining an existing cluster.
+
+		// Verify config.
 		if err = cfg.VerifyJoinExisting(); err != nil {
 			return nil, err
 		}
+
+		// cl now holds a view of a raft cluster parsed from the provided configuration.
+		// This view is expected to be consistent among all members of the cluster.
 		cl, err = membership.NewClusterFromURLsMap(cfg.Logger, cfg.InitialClusterToken, cfg.InitialPeerURLsMap)
 		if err != nil {
 			return nil, err
 		}
+
+		// Fetch cluster view from remote member.
 		existingCluster, gerr := GetClusterFromRemotePeers(cfg.Logger, getRemotePeerURLs(cl, cfg.Name), prt)
 		if gerr != nil {
 			return nil, fmt.Errorf("cannot fetch cluster info from peer urls: %v", gerr)
 		}
+
+		// Check if current member is qualified to join the existing cluster.
 		if err = membership.ValidateClusterAndAssignIDs(cfg.Logger, cl, existingCluster); err != nil {
 			return nil, fmt.Errorf("error validating peerURLs %s: %v", existingCluster, err)
 		}
@@ -387,9 +407,14 @@ func NewServer(cfg ServerConfig) (srv *EtcdServer, err error) {
 		cl.SetID(id, existingCluster.ID())
 
 	case !haveWAL && cfg.NewCluster:
+		// This is the case where a node does not have WAL and is asked to start as a
+		// member of a new cluster.
+
+		// Verify config.
 		if err = cfg.VerifyBootstrap(); err != nil {
 			return nil, err
 		}
+
 		cl, err = membership.NewClusterFromURLsMap(cfg.Logger, cfg.InitialClusterToken, cfg.InitialPeerURLsMap)
 		if err != nil {
 			return nil, err
@@ -422,6 +447,10 @@ func NewServer(cfg ServerConfig) (srv *EtcdServer, err error) {
 		cl.SetID(id, cl.ID())
 
 	case haveWAL:
+		// This is the case where current member has wal directory. In this case
+		// we need to restore the current member from wal files.
+
+		// Member dir is the parent dir of wal dir.
 		if err = fileutil.IsDirWriteable(cfg.MemberDir()); err != nil {
 			return nil, fmt.Errorf("cannot write to member directory: %v", err)
 		}
@@ -446,6 +475,7 @@ func NewServer(cfg ServerConfig) (srv *EtcdServer, err error) {
 		if serr != nil {
 			return nil, serr
 		}
+
 		// snapshot files can be orphaned if etcd crashes after writing them but before writing the corresponding
 		// wal log entries
 		snapshot, err = ss.LoadNewestAvailable(walSnaps)
@@ -566,6 +596,7 @@ func NewServer(cfg ServerConfig) (srv *EtcdServer, err error) {
 			ExpiredLeasesRetryInterval: srv.Cfg.ReqTimeout(),
 		})
 
+	// Auth: Token provider.
 	tp, err := auth.NewTokenProvider(cfg.Logger, cfg.AuthToken,
 		func(index uint64) <-chan struct{} {
 			return srv.applyWait.Wait(index)
@@ -582,6 +613,7 @@ func NewServer(cfg ServerConfig) (srv *EtcdServer, err error) {
 	}
 	srv.authStore = auth.NewAuthStore(srv.getLogger(), srv.be, tp, int(cfg.BcryptCost))
 
+	// Recover kv.
 	srv.kv = mvcc.New(srv.getLogger(), srv.be, srv.lessor, srv.authStore, &srv.consistIndex, mvcc.StoreConfig{CompactionBatchLimit: cfg.CompactionBatchLimit})
 	if beExist {
 		kvindex := srv.kv.ConsistentIndex()
@@ -601,6 +633,7 @@ func NewServer(cfg ServerConfig) (srv *EtcdServer, err error) {
 			}
 		}
 	}
+
 	newSrv := srv // since srv == nil in defer if srv is returned as nil
 	defer func() {
 		// closing backend without first closing kv can cause

@@ -25,6 +25,11 @@ import (
 	"go.etcd.io/etcd/pkg/traceutil"
 )
 
+// authApplierV3 is the top level implementation of applierV3 interface.
+// Authentication must be completed before applying requests.
+//
+// It holds reference to `quotaApplierV3`, who actually implements the
+// `applierV3` interface.
 type authApplierV3 struct {
 	applierV3
 	as     auth.AuthStore
