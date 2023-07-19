@@ -344,7 +344,7 @@ func NewServer(cfg ServerConfig) (srv *EtcdServer, err error) {
 	// Create snapshotter.
 	ss := snap.New(cfg.Logger, cfg.SnapDir())
 
-	// Check db file path.
+	// Check db file path, to detect if a db file already exists.
 	bepath := cfg.backendPath()
 	beExist := fileutil.Exist(bepath)
 
@@ -371,7 +371,7 @@ func NewServer(cfg ServerConfig) (srv *EtcdServer, err error) {
 	case !haveWAL && !cfg.NewCluster:
 		// This is the case where a node does not have WAL and is not asked to
 		// start as a member of a new cluster. In this case, current node is
-		// joining an existing cluster.
+		// expecting to join an existing cluster.
 
 		// Verify config.
 		if err = cfg.VerifyJoinExisting(); err != nil {
@@ -379,13 +379,13 @@ func NewServer(cfg ServerConfig) (srv *EtcdServer, err error) {
 		}
 
 		// cl now holds a view of a raft cluster parsed from the provided configuration.
-		// This view is expected to be consistent among all members of the cluster.
+		// This view is expected to be consistent among all members within the cluster.
 		cl, err = membership.NewClusterFromURLsMap(cfg.Logger, cfg.InitialClusterToken, cfg.InitialPeerURLsMap)
 		if err != nil {
 			return nil, err
 		}
 
-		// Fetch cluster view from remote member.
+		// Fetch cluster view from remote members.
 		existingCluster, gerr := GetClusterFromRemotePeers(cfg.Logger, getRemotePeerURLs(cl, cfg.Name), prt)
 		if gerr != nil {
 			return nil, fmt.Errorf("cannot fetch cluster info from peer urls: %v", gerr)

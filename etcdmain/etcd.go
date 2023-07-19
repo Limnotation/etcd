@@ -135,8 +135,9 @@ func startEtcdOrProxyV2() {
 	var errc <-chan error
 
 	// Detects sub-directory type (member or proxy) and starts the appropriate service.
-	// 	1. If sub-directories are present, starts services based on the sub-directory type.
+	// 	1. If sub-directories are present, starts services using existing data.
 	// 	2. If no sub-directories are present, starts services based on the provided flags.
+	//	   All needed sub-directories will be created automatically.
 	which := identifyDataDirOrDie(cfg.ec.GetLogger(), cfg.ec.Dir)
 	if which != dirEmpty {
 		if lg != nil {

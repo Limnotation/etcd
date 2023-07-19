@@ -37,3 +37,5 @@ vendor/**/*_test.go
 *.bak
 
 /data
+
+*.txt

@@ -122,7 +122,7 @@ func (s *EtcdServer) Range(ctx context.Context, r *pb.RangeRequest) (*pb.RangeRe
 		trace.LogIfLong(traceThreshold)
 	}(time.Now())
 
-	// Default range mode in etcd is linearizable.
+	// Default range mode in etcd is linearizable range.
 	if !r.Serializable {
 		lg.Info("Linearizable Range is now required")
 		err = s.linearizableReadNotify(ctx)

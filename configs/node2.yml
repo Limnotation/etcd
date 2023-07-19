@@ -1,5 +1,5 @@
 name: etcd-node2
-data-dir: /Users/jingyao.deng/Desktop/everythin9/etcd/data/node2
+data-dir: /Users/jingyao.deng/working-content/etcd/data/node2
 initial-cluster-state: new
 initial-cluster-token: etcd-cluster-token
 initial-cluster: etcd-node1=http://127.0.0.1:2380,etcd-node2=http://127.0.0.1:2381,etcd-node3=http://127.0.0.1:2382
