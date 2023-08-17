@@ -628,6 +628,8 @@ func (r *raft) maybeCommit() bool {
 	return r.raftLog.maybeCommit(mci, r.Term)
 }
 
+// reset resets some state of current raft instance when instance
+// state changes.
 func (r *raft) reset(term uint64) {
 	if r.Term != term {
 		r.Term = term
@@ -659,12 +661,16 @@ func (r *raft) reset(term uint64) {
 	r.readOnly = newReadOnly(r.readOnly.option)
 }
 
+// appendEntry appends incoming entries to local raft log.
 func (r *raft) appendEntry(es ...pb.Entry) (accepted bool) {
+	// Incoming entries's indices are relative to the slice, need to
+	// transform them to absolute indices in the raft log.
 	li := r.raftLog.lastIndex()
 	for i := range es {
 		es[i].Term = r.Term
 		es[i].Index = li + 1 + uint64(i)
 	}
+
 	// Track the size of this uncommitted proposal.
 	if !r.increaseUncommittedSize(es) {
 		r.logger.Debugf(
@@ -674,9 +680,11 @@ func (r *raft) appendEntry(es ...pb.Entry) (accepted bool) {
 		// Drop the proposal.
 		return false
 	}
+
 	// use latest "last" index after truncate/append
 	li = r.raftLog.append(es...)
 	r.prs.Progress[r.id].MaybeUpdate(li)
+
 	// Regardless of maybeCommit's return, our caller will call bcastAppend.
 	r.maybeCommit()
 	return true
@@ -932,7 +940,9 @@ func (r *raft) Step(m pb.Message) error {
 	}
 
 	// Handle the message type, since some types might result in
-	// current raft node changing its role.
+	// current raft node changing its role. One thing to note is
+	// that all messages handled in this block are guaranteed to
+	// have `m.Term >= r.Term`.
 	switch m.Type {
 	case pb.MsgHup:
 		if r.state != StateLeader {

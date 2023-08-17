@@ -74,6 +74,7 @@ func newLogWithSize(storage Storage, logger Logger, maxNextEntsSize uint64) *raf
 	}
 	log.unstable.offset = lastIndex + 1
 	log.unstable.logger = logger
+
 	// Initialize our committed and applied pointers to the time of the last compaction.
 	log.committed = firstIndex - 1
 	log.applied = firstIndex - 1
@@ -283,6 +284,8 @@ func (l *raftLog) isUpToDate(lasti, term uint64) bool {
 	return term > l.lastTerm() || (term == l.lastTerm() && lasti >= l.lastIndex())
 }
 
+// matchTerm return true if the raft log has entry at
+// index `i` which has term equal to `term`.
 func (l *raftLog) matchTerm(i, term uint64) bool {
 	t, err := l.term(i)
 	if err != nil {

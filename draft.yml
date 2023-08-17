@@ -1,0 +1,23 @@
+{"level":"info","ts":1691575327.959371,"caller":"raft/raft.go:321","msg":"[1] became follower at term [0]"}
+{"level":"info","ts":1691575327.95945,"caller":"raft/raft.go:321","msg":"[2] became follower at term [0]"}
+{"level":"info","ts":1691575327.9594681,"caller":"raft/raft.go:334","msg":"[1] became candidate at term [9]"}
+{"level":"info","ts":1691575327.959517,"caller":"raft/raft.go:648","msg":"[1] sending vote request to [2] at term [9]"}
+{"level":"info","ts":1691575327.959525,"caller":"raft/raft.go:648","msg":"[1] sending vote request to [3] at term [9]"}
+{"level":"info","ts":1691575327.959543,"caller":"raft/raft.go:448","msg":"2 [term: 7] received a [MsgRequestVote] message with higher term from 1 [term: 9]"}
+{"level":"info","ts":1691575327.95955,"caller":"raft/raft.go:321","msg":"[2] became follower at term [9]"}
+{"level":"info","ts":1691575327.959556,"caller":"raft/raft.go:478","msg":"2 [vote: 0] cast vote for 1 at term 9"}
+{"level":"info","ts":1691575327.9595678,"caller":"raft/raft.go:421","msg":"[1] became leader at term [9]"}
+{"level":"error","ts":1691575327.959577,"caller":"raft/raft.go:703","msg":"2 [term 9] rejected MessageType_MsgAppend from 1 for index 10","stacktrace":"github.com/pingcap-incubator/tinykv/raft.(*Raft).handleAppendEntries\n\t/Users/jingyao.deng/working-content/tinykv/raft/raft.go:703\ngithub.com/pingcap-incubator/tinykv/raft.(*Raft).Step\n\t/Users/jingyao.deng/working-content/tinykv/raft/raft.go:505\ngithub.com/pingcap-incubator/tinykv/raft.(*network).send\n\t/Users/jingyao.deng/working-content/tinykv/raft/raft_test.go:1636\ngithub.com/pingcap-incubator/tinykv/raft.TestLeaderSyncFollowerLog2AB\n\t/Users/jingyao.deng/working-content/tinykv/raft/raft_paper_test.go:754\ntesting.tRunner\n\t/usr/local/Cellar/go/1.20.7/libexec/src/testing/testing.go:1576"}
+{"level":"error","ts":1691575327.95963,"caller":"raft/raft.go:595","msg":"1 [term 9] received MessageType_MsgAppend rejection from 0 for index 10","stacktrace":"github.com/pingcap-incubator/tinykv/raft.(*Raft).Step\n\t/Users/jingyao.deng/working-content/tinykv/raft/raft.go:595\ngithub.com/pingcap-incubator/tinykv/raft.(*network).send\n\t/Users/jingyao.deng/working-content/tinykv/raft/raft_test.go:1636\ngithub.com/pingcap-incubator/tinykv/raft.TestLeaderSyncFollowerLog2AB\n\t/Users/jingyao.deng/working-content/tinykv/raft/raft_paper_test.go:754\ntesting.tRunner\n\t/usr/local/Cellar/go/1.20.7/libexec/src/testing/testing.go:1576"}
+{"level":"info","ts":1691575327.959678,"caller":"raft/raft.go:615","msg":"Message type that leader will not handle","type":"MsgRequestVoteResponse"}
+{"level":"error","ts":1691575327.959699,"caller":"raft/raft.go:703","msg":"2 [term 9] rejected MessageType_MsgAppend from 1 for index 10","stacktrace":"github.com/pingcap-incubator/tinykv/raft.(*Raft).handleAppendEntries\n\t/Users/jingyao.deng/working-content/tinykv/raft/raft.go:703\ngithub.com/pingcap-incubator/tinykv/raft.(*Raft).Step\n\t/Users/jingyao.deng/working-content/tinykv/raft/raft.go:505\ngithub.com/pingcap-incubator/tinykv/raft.(*network).send\n\t/Users/jingyao.deng/working-content/tinykv/raft/raft_test.go:1636\ngithub.com/pingcap-incubator/tinykv/raft.TestLeaderSyncFollowerLog2AB\n\t/Users/jingyao.deng/working-content/tinykv/raft/raft_paper_test.go:759\ntesting.tRunner\n\t/usr/local/Cellar/go/1.20.7/libexec/src/testing/testing.go:1576"}
+{"level":"error","ts":1691575327.959719,"caller":"raft/raft.go:595","msg":"1 [term 9] received MessageType_MsgAppend rejection from 0 for index 10","stacktrace":"github.com/pingcap-incubator/tinykv/raft.(*Raft).Step\n\t/Users/jingyao.deng/working-content/tinykv/raft/raft.go:595\ngithub.com/pingcap-incubator/tinykv/raft.(*network).send\n\t/Users/jingyao.deng/working-content/tinykv/raft/raft_test.go:1636\ngithub.com/pingcap-incubator/tinykv/raft.TestLeaderSyncFollowerLog2AB\n\t/Users/jingyao.deng/working-content/tinykv/raft/raft_paper_test.go:759\ntesting.tRunner\n\t/usr/local/Cellar/go/1.20.7/libexec/src/testing/testing.go:1576"}
+    /Users/jingyao.deng/working-content/tinykv/raft/raft_paper_test.go:762: #0: log diff:
+        --- /var/folders/74/c3cwnmgn7r3fqbtwr05b6r1m0000gy/T/base3341572211 2023-08-09 18:02:07
+        +++ /var/folders/74/c3cwnmgn7r3fqbtwr05b6r1m0000gy/T/other951283289 2023-08-09 18:02:07
+        @@ -1,4 +1,2 @@
+        -committed: 10
+        +committed: 0
+         applied:  0
+        -#0: {EntryType:EntryNormal Term:9 Index:11 Data:[] XXX_NoUnkeyedLiteral:{} XXX_unrecognized:[] XXX_sizecache:0}
+        -#1: {EntryType:EntryNormal Term:9 Index:12 Data:[] XXX_NoUnkeyedLiteral:{} XXX_unrecognized:[] XXX_sizecache:0}
