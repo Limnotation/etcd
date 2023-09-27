@@ -90,7 +90,8 @@ type Client struct {
 	// Username is a user name for authentication.
 	Username string
 	// Password is a password for authentication.
-	Password        string
+	Password string
+
 	authTokenBundle credentials.Bundle
 
 	callOpts []grpc.CallOption

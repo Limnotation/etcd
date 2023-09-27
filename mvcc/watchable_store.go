@@ -15,10 +15,11 @@
 package mvcc
 
 import (
-	"go.etcd.io/etcd/auth"
-	"go.etcd.io/etcd/clientv3"
 	"sync"
 	"time"
+
+	"go.etcd.io/etcd/auth"
+	"go.etcd.io/etcd/clientv3"
 
 	"go.etcd.io/etcd/lease"
 	"go.etcd.io/etcd/mvcc/backend"
@@ -524,6 +525,7 @@ func (s *watchableStore) progressIfSync(watchers map[WatchID]*watcher, responseW
 type watcher struct {
 	// the watcher key
 	key []byte
+
 	// end indicates the end of the range to watch.
 	// If end is set, the watcher is on a range.
 	end []byte
@@ -542,11 +544,16 @@ type watcher struct {
 	// except when the watcher were to be moved from "synced" watcher group
 	restore bool
 
-	// minRev is the minimum revision update the watcher will accept
+	// minRev is the minimum revision update the watcher will accept.
+	// Updates that happened prior to this revision will not tirgger
+	// the watcher.
 	minRev int64
-	id     WatchID
+
+	// Unique identifier
+	id WatchID
 
 	fcs []FilterFunc
+
 	// a chan to send out the watch response.
 	// The chan might be shared with other watchers.
 	ch chan<- WatchResponse

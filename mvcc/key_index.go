@@ -73,8 +73,13 @@ var (
 //
 //	{empty} -> key SHOULD be removed.
 type keyIndex struct {
-	key         []byte
-	modified    revision // the main rev of the last modification
+	// The key that users provide.
+	key []byte
+
+	// The revision of the `key` from its latest modification.
+	modified revision
+
+	// Each generation represents one life-cycle of the key.
 	generations []generation
 }
 
@@ -145,6 +150,8 @@ func (ki *keyIndex) tombstone(lg *zap.Logger, main int64, sub int64) error {
 	}
 	ki.put(lg, main, sub)
 	ki.generations = append(ki.generations, generation{})
+
+	// This key is now considered deleted to the user.
 	keysGauge.Dec()
 	return nil
 }
@@ -362,16 +369,27 @@ func (ki *keyIndex) String() string {
 
 // generation contains multiple revisions of a key.
 type generation struct {
-	ver     int64
-	created revision // when the generation is created (put in first revision).
-	revs    []revision
+	// count how many changes on the key since its creation. So this is
+	// actually the length of the slice `revs`.
+	ver int64
+
+	// when the generation is created (put in first revision).
+	created revision
+
+	// revisions for subsequent changes on the same key. Each change
+	// on the key will result in a new revision being appended to the
+	// slice(including the creation).
+	revs []revision
 }
 
 func (g *generation) isEmpty() bool { return g == nil || len(g.revs) == 0 }
 
 // walk walks through the revisions in the generation in descending order.
 // It passes the revision to the given function.
-// walk returns until: 1. it finishes walking all pairs 2. the function returns false.
+// walk returns until:
+//  1. it finishes walking all pairs
+//  2. the function returns false.
+//
 // walk returns the position at where it stopped. If it stopped after
 // finishing walking, -1 will be returned.
 func (g *generation) walk(f func(rev revision) bool) int {

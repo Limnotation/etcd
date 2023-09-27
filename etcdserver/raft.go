@@ -76,10 +76,12 @@ type apply struct {
 	notifyc chan struct{}
 }
 
+// raftNode provides a way for the server to interact with raft module.
 type raftNode struct {
 	lg *zap.Logger
 
 	tickMu *sync.Mutex
+
 	raftNodeConfig
 
 	// a chan to send/receive snapshot
@@ -93,6 +95,7 @@ type raftNode struct {
 
 	// utility
 	ticker *time.Ticker
+
 	// contention detectors for raft heartbeat message
 	td *contention.TimeoutDetector
 
@@ -105,10 +108,14 @@ type raftNodeConfig struct {
 
 	// to check if msg receiver is removed from cluster
 	isIDRemoved func(id uint64) bool
+
+	// The actual entrance to interact with raft module.
 	raft.Node
+
 	raftStorage *raft.MemoryStorage
 	storage     Storage
 	heartbeat   time.Duration // for logging
+
 	// transport specifies the transport to send and receive msgs to members.
 	// Sending messages MUST NOT block. It is okay to drop messages, since
 	// clients should timeout and reissue their messages.
@@ -210,6 +217,7 @@ func (r *raftNode) start(rh *raftReadyHandler) {
 					}
 				}
 
+				// Deal with entries and snapshots in the Ready struct.
 				notifyc := make(chan struct{}, 1)
 				ap := apply{
 					entries:  rd.CommittedEntries,
@@ -350,6 +358,8 @@ func (r *raftNode) start(rh *raftReadyHandler) {
 					notifyc <- struct{}{}
 				}
 
+				// Should always advance raft when done processing the data received
+				// from it.
 				r.Advance()
 			case <-r.stopped:
 				return
@@ -507,6 +517,8 @@ func startNode(cfg ServerConfig, cl *membership.RaftCluster, ids []types.ID) (id
 	// Set up wal.
 	var err error
 	member := cl.MemberByName(cfg.Name)
+
+	// MemberID and clusterID is stored as the first metadata entry in WAL.
 	metadata := pbutil.MustMarshal(
 		&pb.Metadata{
 			NodeID:    uint64(member.ID),

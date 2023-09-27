@@ -129,7 +129,7 @@ type Transport struct {
 	pipelineRt http.RoundTripper // roundTripper used by pipelines
 
 	mu      sync.RWMutex         // protect the remote and peer map
-	remotes map[types.ID]*remote // remotes map that helps newly joined member to catch up
+	remotes map[types.ID]*remote // remotes map that helps newly joined member to catch up(by using `pipeline`)
 	peers   map[types.ID]Peer    // peers map
 
 	pipelineProber probing.Prober
@@ -165,10 +165,10 @@ func (t *Transport) Handler() http.Handler {
 	streamHandler := newStreamHandler(t, t, t.Raft, t.ID, t.ClusterID)
 	snapHandler := newSnapshotHandler(t, t.Raft, t.Snapshotter, t.ClusterID)
 	mux := http.NewServeMux()
-	mux.Handle(RaftPrefix, pipelineHandler)
-	mux.Handle(RaftStreamPrefix+"/", streamHandler)
-	mux.Handle(RaftSnapshotPrefix, snapHandler)
-	mux.Handle(ProbingPrefix, probing.NewHandler())
+	mux.Handle(RaftPrefix, pipelineHandler)         // `/raft` 			--> pipelineHandler
+	mux.Handle(RaftStreamPrefix+"/", streamHandler) // `/raft/stream/` 	--> streamHandler
+	mux.Handle(RaftSnapshotPrefix, snapHandler)     // `/raft/snapshot` --> snapHandler
+	mux.Handle(ProbingPrefix, probing.NewHandler()) // `/raft/probing` 	--> probingHandler
 	return mux
 }
 
@@ -191,6 +191,7 @@ func (t *Transport) Send(msgs []raftpb.Message) {
 		g, rok := t.remotes[to]
 		t.mu.RUnlock()
 
+		// Send messages through peer if it exists, otherwise send through remote.
 		if pok {
 			if m.Type == raftpb.MsgApp {
 				t.ServerStats.SendAppendReq(m.Size())

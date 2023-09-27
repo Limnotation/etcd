@@ -98,7 +98,11 @@ type WatchResponse struct {
 // one streaming chan to send out watched events and other control events.
 type watchStream struct {
 	watchable watchable
-	ch        chan WatchResponse
+
+	// This channel is shared among all watchers that created on this stream.
+	// This channel has no capcity, so competition is inevitable. Watchers
+	// blocked on this channel would be marked as `victim`.
+	ch chan WatchResponse
 
 	mu sync.Mutex // guards fields below it
 	// nextID is the ID pre-allocated for next new watcher in this stream

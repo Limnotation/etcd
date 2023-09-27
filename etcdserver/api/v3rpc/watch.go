@@ -131,6 +131,8 @@ type serverWatchStream struct {
 	watchable mvcc.WatchableKV
 	ag        AuthGetter
 
+	// Server side receive requests from clients and send responses to
+	// clients through this gRPCStream.
 	gRPCStream  pb.Watch_WatchServer
 	watchStream mvcc.WatchStream
 	ctrlStream  chan *pb.WatchResponse
@@ -157,6 +159,9 @@ type serverWatchStream struct {
 }
 
 func (ws *watchServer) Watch(stream pb.Watch_WatchServer) (err error) {
+	// Everytime client calls the `Watch` method, a new watch stream is created.
+	// It's better to resue the same watch stream for all watch requests from
+	// the same client.
 	sws := serverWatchStream{
 		lg: ws.lg,
 

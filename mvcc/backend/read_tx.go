@@ -39,14 +39,21 @@ type ReadTx interface {
 
 type readTx struct {
 	// mu protects accesses to the txReadBuffer
-	mu  sync.RWMutex
+	mu sync.RWMutex
+
+	// buf caches mappings from bucket name to kv pairs stored within that bucket.
+	// This is for better read performance(I suppose).
 	buf txReadBuffer
 
 	// TODO: group and encapsulate {txMu, tx, buckets, txWg}, as they share the same lifecycle.
 	// txMu protects accesses to buckets and tx on Range requests.
-	txMu    sync.RWMutex
-	tx      *bolt.Tx
+	txMu sync.RWMutex
+	tx   *bolt.Tx
+
+	// buckets caches mappings from bucket name to bucket. This is used as the second level
+	// cache under `buf`. B-Tree traversal is definitely slower than hash table lookup.
 	buckets map[string]*bolt.Bucket
+
 	// txWg protects tx from being rolled back at the end of a batch interval until all reads using this tx are done.
 	txWg *sync.WaitGroup
 }
@@ -67,12 +74,14 @@ func (rt *readTx) UnsafeRange(bucketName, key, endKey []byte, limit int64) ([][]
 	if limit > 1 && !bytes.Equal(bucketName, safeRangeBucket) {
 		panic("do not use unsafeRange on non-keys bucket")
 	}
+
+	// Try read from buffer first.
 	keys, vals := rt.buf.Range(bucketName, key, endKey, limit)
 	if int64(len(keys)) == limit {
 		return keys, vals
 	}
 
-	// find/cache bucket
+	// Find/cache bucket
 	bn := string(bucketName)
 	rt.txMu.RLock()
 	bucket, ok := rt.buckets[bn]
@@ -84,7 +93,7 @@ func (rt *readTx) UnsafeRange(bucketName, key, endKey []byte, limit int64) ([][]
 		rt.txMu.Unlock()
 	}
 
-	// ignore missing bucket since may have been created in this batch
+	// Ignore missing bucket since may have been created in this batch
 	if bucket == nil {
 		return keys, vals
 	}

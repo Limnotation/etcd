@@ -57,15 +57,18 @@ type Backend interface {
 
 	Snapshot() Snapshot
 	Hash(ignores map[IgnoreKey]struct{}) (uint32, error)
+
 	// Size returns the current size of the backend physically allocated.
 	// The backend can hold DB space that is not utilized at the moment,
 	// since it can conduct pre-allocation or spare unused space for recycling.
 	// Use SizeInUse() instead for the actual DB size.
 	Size() int64
+
 	// SizeInUse returns the current size of the backend logically in use.
 	// Since the backend can manage free space in a non-byte unit such as
 	// number of pages, the returned value can be not exactly accurate in bytes.
 	SizeInUse() int64
+
 	// OpenReadTxN returns the number of currently open read transactions in the backend.
 	OpenReadTxN() int64
 	Defrag() error
@@ -105,11 +108,18 @@ type backend struct {
 	bopts *bolt.Options
 	db    *bolt.DB
 
+	// The maximum interval allowed between two batch transaction commits.
 	batchInterval time.Duration
-	batchLimit    int
-	batchTx       *batchTxBuffered
 
+	// The number of the operations allowed before forcing a batch transaction commit.
+	batchLimit int
+
+	// Batched RW transactions.
+	batchTx *batchTxBuffered
+
+	// Read-only transaction.
 	readTx *readTx
+
 	// txReadBufferCache mirrors "txReadBuffer" within "readTx" -- readTx.baseReadTx.buf.
 	// When creating "concurrentReadTx":
 	// - if the cache is up-to-date, "readTx.baseReadTx.buf" copy can be skipped
@@ -126,8 +136,10 @@ type BackendConfig struct {
 	// Path is the file path to the backend file.
 	Path string
 	// BatchInterval is the maximum time before flushing the BatchTx.
+	// Defaults to 100ms.
 	BatchInterval time.Duration
 	// BatchLimit is the maximum puts before flushing the BatchTx.
+	// Defaults to 10000.
 	BatchLimit int
 	// BackendFreelistType is the backend boltdb's freelist type.
 	BackendFreelistType bolt.FreelistType
@@ -525,6 +537,7 @@ func (b *backend) defrag() error {
 		}
 	}
 
+	// Now we switch to the new database.
 	b.db, err = bolt.Open(dbp, 0600, b.bopts)
 	if err != nil {
 		if b.lg != nil {
@@ -533,6 +546,7 @@ func (b *backend) defrag() error {
 			plog.Panicf("cannot open database at %s (%v)", dbp, err)
 		}
 	}
+
 	b.batchTx.tx = b.unsafeBegin(true)
 
 	b.readTx.reset()
@@ -563,6 +577,10 @@ func (b *backend) defrag() error {
 	return nil
 }
 
+// Iterate all data from the old database and write all data to the new database.
+// During this process, the FillPercent of the new database is set to 0.9 to allow
+// store more data using a `smaller` tree. By doing this, we achive the goal of
+// defragmentation.
 func defragdb(odb, tmpdb *bolt.DB, limit int) error {
 	// open a tx on tmpdb for writes
 	tmptx, err := tmpdb.Begin(true)

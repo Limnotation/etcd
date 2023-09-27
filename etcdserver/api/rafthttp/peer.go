@@ -108,8 +108,11 @@ type peer struct {
 
 	msgAppV2Writer *streamWriter
 	writer         *streamWriter
-	pipeline       *pipeline
-	snapSender     *snapshotSender // snapshot sender to send v3 snapshot messages
+
+	pipeline *pipeline
+
+	snapSender *snapshotSender // snapshot sender to send v3 snapshot messages
+
 	msgAppV2Reader *streamReader
 	msgAppReader   *streamReader
 

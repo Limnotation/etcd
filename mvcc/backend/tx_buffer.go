@@ -56,6 +56,7 @@ func (txw *txWriteBuffer) putSeq(bucket, k, v []byte) {
 	b.add(k, v)
 }
 
+// Merge data from txw into txr. Only updates cache(hence the name writeback).
 func (txw *txWriteBuffer) writeback(txr *txReadBuffer) {
 	for k, wb := range txw.buckets {
 		rb, ok := txr.buckets[k]

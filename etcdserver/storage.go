@@ -42,6 +42,8 @@ type Storage interface {
 	Sync() error
 }
 
+// storage implement the Storage interface. It encapsulates WAL and Snapshotter,
+// data would be stored in WAL and SnapShotter for recovery.
 type storage struct {
 	*wal.WAL
 	*snap.Snapshotter

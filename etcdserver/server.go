@@ -344,7 +344,7 @@ func NewServer(cfg ServerConfig) (srv *EtcdServer, err error) {
 	// Create snapshotter.
 	ss := snap.New(cfg.Logger, cfg.SnapDir())
 
-	// Check db file path, to detect if a db file already exists.
+	// Check db file path, detect if a db file already exists.
 	bepath := cfg.backendPath()
 	beExist := fileutil.Exist(bepath)
 
@@ -664,6 +664,7 @@ func NewServer(cfg ServerConfig) (srv *EtcdServer, err error) {
 		})
 	}
 
+	// Set up Transport for communicating with peers.
 	// TODO: move transport initialization near the definition of remote
 	tr := &rafthttp.Transport{
 		Logger:      cfg.Logger,
